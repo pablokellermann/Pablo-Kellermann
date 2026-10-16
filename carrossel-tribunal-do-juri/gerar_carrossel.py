@@ -34,37 +34,6 @@ logo_w = logo_w.crop(logo_w.getbbox())
 mono = logo_w.crop((0, 0, logo_w.width, int(logo_w.height * 0.50)))
 mono = mono.crop(mono.getbbox())
 
-# ---------- logo 3D (versão original, aplicada sobre placa clara) ----------
-LOGO3D = Image.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "logo-3d.png")).convert("RGB")
-BG3D = LOGO3D.getpixel((5, 5))
-
-
-def placa(box, alvo_w, pad=0.10, raio=0.07):
-    """Recorta a logo 3D, coloca em placa arredondada com filete dourado e sombra."""
-    c = LOGO3D.crop(box)
-    c = c.resize((alvo_w, round(c.height * alvo_w / c.width)), Image.LANCZOS)
-    p = round(alvo_w * pad)
-    w, h = c.width + 2 * p, c.height + 2 * p
-    r = round(min(w, h) * raio * 2.2)
-    sh = 18  # margem para a sombra
-    out = Image.new("RGBA", (w + 2 * sh, h + 2 * sh), (0, 0, 0, 0))
-    sombra = Image.new("RGBA", out.size, (0, 0, 0, 0))
-    ImageDraw.Draw(sombra).rounded_rectangle((sh, sh + 6, sh + w, sh + h + 6), r, fill=(0, 0, 0, 120))
-    out.alpha_composite(sombra.filter(ImageFilter.GaussianBlur(10)))
-    card = Image.new("RGBA", (w, h), (0, 0, 0, 0))
-    dc = ImageDraw.Draw(card)
-    dc.rounded_rectangle((0, 0, w - 1, h - 1), r, fill=BG3D + (255,), outline=GOLD, width=3)
-    m = Image.new("L", (w, h), 0)
-    ImageDraw.Draw(m).rounded_rectangle((6, 6, w - 7, h - 7), max(r - 6, 0), fill=255)
-    card.paste(c, (p, p), m.crop((p, p, p + c.width, p + c.height)))
-    out.alpha_composite(card, (sh, sh))
-    return out
-
-
-SH = 18
-PLACA_MONO = placa((1160, 530, 1930, 1075), 92, pad=0.16)      # só o monograma PK
-PLACA_FULL = lambda w: placa((700, 530, 2360, 1490), w, pad=0.08)  # logo completa
-
 
 def enhance(img):
     img = ImageOps.exif_transpose(img).convert("RGB")
@@ -148,8 +117,8 @@ def slide(n, photo, fx, fy, tag, title, body, ref, zoom=1.0, gstart=520):
     d = ImageDraw.Draw(img)
     # topo: etapa + monograma
     spaced(d, (M, TOP), tag, F(SANS_B, 24), GOLD, 5)
-    lg = PLACA_MONO
-    img.alpha_composite(lg, (W - M - lg.width + SH, TOP - 22 - SH))
+    lg = mono.copy(); lg.thumbnail((200, 74), Image.LANCZOS)
+    img.alpha_composite(lg, (W - M - lg.width, TOP - 14))
     # bloco inferior (de baixo para cima)
     ft, fb, fr = F(SERIF_B, 70), F(SANS, 33), F(SANS_M, 24)
     maxw = W - 2 * M
@@ -180,8 +149,8 @@ def cover_slide():
     img = cover(enhance(Image.open(UP + "68244d85-image.jpg")), 0.62, 0.32)
     img = gradient(img, 430, 245, top=False)
     d = ImageDraw.Draw(img)
-    lg = PLACA_FULL(300)
-    img.alpha_composite(lg, (M - SH, TOP - 10 - SH))
+    lg = logo_w.copy(); lg.thumbnail((330, 210), Image.LANCZOS)
+    img.alpha_composite(lg, (M, TOP - 4))
     y = H - 590 - BOT
     spaced(d, (M, y), "GUIA PRÁTICO  ·  DIREITO PENAL", F(SANS_B, 24), GOLD, 5); y += 56
     for l in ["Tribunal", "do Júri"]:
@@ -206,8 +175,8 @@ def final_slide():
     d.rectangle((W / 2 - 45, y, W / 2 + 45, y + 4), fill=GOLD); y += 32
     for l in wrap(d, "A atuação técnica desde o inquérito pode definir o resultado no plenário e no Tribunal.", F(SANS, 31), W - 2 * M - 40):
         d.text((W / 2, y), l, font=F(SANS, 31), fill=(240, 243, 248), anchor="ma"); y += 44
-    lg = PLACA_FULL(300)
-    img.alpha_composite(lg, (int(W / 2 - lg.width / 2), y + 30 - SH))
+    lg = logo_w.copy(); lg.thumbnail((280, 170), Image.LANCZOS)
+    img.alpha_composite(lg, (int(W / 2 - lg.width / 2), y + 34))
     dots(d, TOTAL - 1, TOTAL)
     img.convert("RGB").save(f"{OUT}/{TOTAL:02d}.jpg", quality=94, subsampling=0)
 
