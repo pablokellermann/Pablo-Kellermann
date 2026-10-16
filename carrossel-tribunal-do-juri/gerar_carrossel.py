@@ -4,7 +4,10 @@ import numpy as np, os, sys
 UP = "/root/.claude/uploads/1f883b76-be36-50bf-a705-d2154bf0eb3d/"
 OUT = sys.argv[1]
 os.makedirs(OUT, exist_ok=True)
-W, H = 1080, 1350
+W, H = 1080, int(os.environ.get("ALTURA", 1350))
+STORY = H > 1500
+TOP = 230 if STORY else 64      # área segura do topo nos Stories
+BOT = 230 if STORY else 0       # área segura da base nos Stories
 NAVY = (6, 30, 68)
 GOLD = (222, 184, 108)
 WHITE = (255, 255, 255)
@@ -54,10 +57,11 @@ def gradient(base, start, end_alpha=238, top=True):
     px = np.zeros((H, W, 4), np.uint8)
     px[..., :3] = NAVY
     ys = np.arange(H)
+    start = start + (H - 1350) - BOT
     t = np.clip((ys - start) / (H - start), 0, 1) ** 0.85
     al = (t * end_alpha)
     if top:  # leve escurecimento no topo para tag e logo
-        al = np.maximum(al, np.clip((260 - ys) / 260, 0, 1) ** 1.6 * 150)
+        al = np.maximum(al, np.clip((TOP + 220 - ys) / 220, 0, 1) ** 1.4 * 165)
     px[..., 3] = al[:, None].astype(np.uint8)
     ov = Image.fromarray(px, "RGBA")
     # vinheta suave
@@ -100,7 +104,7 @@ def dots(draw, idx, total):
     for i in range(total):
         c = GOLD if i == idx else (255, 255, 255, 110)
         rr = r if i == idx else 4
-        draw.ellipse((x0 + i * gap - rr, H - 52 - rr, x0 + i * gap + rr, H - 52 + rr), fill=c)
+        draw.ellipse((x0 + i * gap - rr, H - 52 - BOT - rr, x0 + i * gap + rr, H - 52 - BOT + rr), fill=c)
 
 
 M = 72  # margem lateral
@@ -112,9 +116,9 @@ def slide(n, photo, fx, fy, tag, title, body, ref, zoom=1.0, gstart=520):
     img = gradient(img, gstart)
     d = ImageDraw.Draw(img)
     # topo: etapa + monograma
-    spaced(d, (M, 64), tag, F(SANS_B, 24), GOLD, 5)
+    spaced(d, (M, TOP), tag, F(SANS_B, 24), GOLD, 5)
     lg = mono.copy(); lg.thumbnail((200, 74), Image.LANCZOS)
-    img.alpha_composite(lg, (W - M - lg.width, 50))
+    img.alpha_composite(lg, (W - M - lg.width, TOP - 14))
     # bloco inferior (de baixo para cima)
     ft, fb, fr = F(SERIF_B, 70), F(SANS, 33), F(SANS_M, 24)
     maxw = W - 2 * M
@@ -123,7 +127,7 @@ def slide(n, photo, fx, fy, tag, title, body, ref, zoom=1.0, gstart=520):
     rl = wrap(d, ref, fr, maxw - 28) if ref else []
     h_t, h_b, h_r = 78, 46, 34
     total_h = len(tl) * h_t + 30 + 26 + len(bl) * h_b + (30 + len(rl) * h_r if rl else 0)
-    y = H - 100 - total_h
+    y = H - 100 - BOT - total_h
     for l in tl:
         d.text((M, y), l, font=ft, fill=WHITE); y += h_t
     y += 18
@@ -137,7 +141,7 @@ def slide(n, photo, fx, fy, tag, title, body, ref, zoom=1.0, gstart=520):
             d.text((M + 22, y), l, font=fr, fill=GOLD); y += h_r
     dots(d, n - 1, TOTAL)
     if n < TOTAL:
-        d.text((W - M, H - 52), "arraste  →", font=F(SANS_M, 22), fill=(255, 255, 255, 190), anchor="rm")
+        d.text((W - M, H - 52 - BOT), "arraste  →", font=F(SANS_M, 22), fill=(255, 255, 255, 190), anchor="rm")
     img.convert("RGB").save(f"{OUT}/{n:02d}.jpg", quality=94, subsampling=0)
 
 
@@ -146,8 +150,8 @@ def cover_slide():
     img = gradient(img, 430, 245, top=False)
     d = ImageDraw.Draw(img)
     lg = logo_w.copy(); lg.thumbnail((330, 210), Image.LANCZOS)
-    img.alpha_composite(lg, (M, 60))
-    y = 760
+    img.alpha_composite(lg, (M, TOP - 4))
+    y = H - 590 - BOT
     spaced(d, (M, y), "GUIA PRÁTICO  ·  DIREITO PENAL", F(SANS_B, 24), GOLD, 5); y += 56
     for l in ["Tribunal", "do Júri"]:
         d.text((M, y), l, font=F(SERIF_B, 118), fill=WHITE); y += 118
@@ -156,7 +160,7 @@ def cover_slide():
     for l in wrap(d, "Do inquérito policial à sustentação oral no Tribunal de Justiça — passo a passo.", F(SERIF_I, 40), W - 2 * M - 60):
         d.text((M, y), l, font=F(SERIF_I, 40), fill=(240, 243, 248)); y += 50
     dots(d, 0, TOTAL)
-    d.text((W - M, H - 52), "arraste  →", font=F(SANS_M, 22), fill=(255, 255, 255, 190), anchor="rm")
+    d.text((W - M, H - 52 - BOT), "arraste  →", font=F(SANS_M, 22), fill=(255, 255, 255, 190), anchor="rm")
     img.convert("RGB").save(f"{OUT}/01.jpg", quality=94, subsampling=0)
 
 
@@ -164,7 +168,7 @@ def final_slide():
     img = cover(enhance(Image.open(UP + "6be1c5b7-image.jpg")), 0.5, 0.38)
     img = gradient(img, 380, 250, top=False)
     d = ImageDraw.Draw(img)
-    y = 700
+    y = H - 650 - BOT
     for l in wrap(d, "Cada fase é uma oportunidade de defesa.", F(SERIF_B, 66), W - 2 * M):
         d.text((W / 2, y), l, font=F(SERIF_B, 66), fill=WHITE, anchor="ma"); y += 76
     y += 14
